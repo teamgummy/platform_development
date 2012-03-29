@@ -1,232 +1,243 @@
-# Makefile to build the SDK repository packages.
-
-.PHONY: sdk_repo
-
-SDK_REPO_DEPS       :=
-SDK_REPO_XML_ARGS   :=
-SDK_EXTRAS_DEPS     :=
-SDK_EXTRAS_XML_ARGS :=
-
-# Define the name of a package zip file to generate
-# $1=OS (e.g. linux-x86, windows, etc)
-# $2=sdk zip (e.g. out/host/linux.../android-eng-sdk.zip)
-# $3=package to create (e.g. tools, docs, etc.)
 #
-define sdk-repo-pkg-zip
-$(dir $(2))/sdk-repo-$(1)-$(3)-$(FILE_NAME_TAG).zip
-endef
-
-# Defines the rule to build an SDK repository package by zipping all
-# the content of the given directory.
-# E.g. given a folder out/host/linux.../sdk/android-eng-sdk/tools
-# this generates an sdk-repo-linux-tools that contains tools/*
+# Copyright (C) 2007 The Android Open Source Project
 #
-# $1=OS (e.g. linux-x86, windows, etc)
-# $2=sdk zip (e.g. out/host/linux.../android-eng-sdk.zip)
-# $3=package to create (e.g. tools, docs, etc.)
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# The rule depends on the SDK zip file, which is defined by $2.
+#      http://www.apache.org/licenses/LICENSE-2.0
 #
-define mk-sdk-repo-pkg-1
-$(call sdk-repo-pkg-zip,$(1),$(2),$(3)): $(2)
-	@echo "Building SDK repository package $(3) from $(notdir $(2))"
-	$(hide) cd $(basename $(2)) && \
-			zip -9rq ../$(notdir $(call sdk-repo-pkg-zip,$(1),$(2),$(3))) $(3)/*
-$(call dist-for-goals, sdk_repo, $(call sdk-repo-pkg-zip,$(1),$(2),$(3)))
-SDK_REPO_XML_ARGS += $(3) $(1) \
-	$(call sdk-repo-pkg-zip,$(1),$(2),$(3)):$(notdir $(call sdk-repo-pkg-zip,$(1),$(2),$(3)))
-endef
-
-# Defines the rule to build an SDK repository package when the
-# package directory contains a single platform-related inner directory.
-# E.g. given a folder out/host/linux.../sdk/android-eng-sdk/samples/android-N
-# this generates an sdk-repo-linux-samples that contains android-N/*
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
-# $1=OS (e.g. linux-x86, windows, etc)
-# $2=sdk zip (e.g. out/host/linux.../android-eng-sdk.zip)
-# $3=package to create (e.g. platforms, samples, etc.)
+
 #
-# The rule depends on the SDK zip file, which is defined by $2.
+# These are the files that comprise that SDK.
 #
-define mk-sdk-repo-pkg-2
-$(call sdk-repo-pkg-zip,$(1),$(2),$(3)): $(2)
-	@echo "Building SDK repository package $(3) from $(notdir $(2))"
-	$(hide) cd $(basename $(2))/$(3) && \
-			zip -9rq ../../$(notdir $(call sdk-repo-pkg-zip,$(1),$(2),$(3))) *
-$(call dist-for-goals, sdk_repo, $(call sdk-repo-pkg-zip,$(1),$(2),$(3)))
-SDK_REPO_XML_ARGS += $(3) $(1) \
-	$(call sdk-repo-pkg-zip,$(1),$(2),$(3)):$(notdir $(call sdk-repo-pkg-zip,$(1),$(2),$(3)))
-endef
-
-# Defines the rule to build an SDK repository package when the
-# package directory contains 3 levels from the sdk dir, for example
-# to package SDK/extra/android/support or SDK/system-images/android-N/armeabi.
-# Because we do not know the intermediary directory name, this only works
-# if each directory contains a single sub-directory (e.g. sdk/$4/*/* must be
-# unique.)
+# The files that will go in the tools folder are setup through
+#    sdk/build/tools.atree
+# This is to help when the sdk.git project is branched differently from
+# the other projects.
 #
-# $1=OS (e.g. linux-x86, windows, etc)
-# $2=sdk zip (e.g. out/host/linux.../android-eng-sdk.zip)
-# $3=package to create (e.g. system-images, support, etc.)
-# $4=the root of directory to package in the sdk (e.g. extra/android).
-#    this must be a 2-segment path, the last one can be *.
+
+##############################################################################
+# SDK Root folder
+##############################################################################
+
+# the readme
+development/docs/SDK_RELEASE_NOTES RELEASE_NOTES.html
+
+# doc redirect
+frameworks/base/docs/docs-redirect.html documentation.html
+
+##############################################################################
+# Platform Tools Component
+##############################################################################
+
+development/sdk/plat_tools_source.properties  platform-tools/source.properties
+
+# host tools from out/host/$(HOST_OS)-$(HOST_ARCH)/
+bin/adb                                 strip platform-tools/adb
+bin/aapt                                strip platform-tools/aapt
+bin/aidl                                strip platform-tools/aidl
+bin/fastboot                            strip platform-tools/fastboot
+bin/llvm-rs-cc                          strip platform-tools/llvm-rs-cc
+
+# dx
+bin/dx                                        platform-tools/dx
+bin/dexdump                                   platform-tools/dexdump
+framework/dx.jar                              platform-tools/lib/dx.jar
+
+# Framework include for Renderscript
+frameworks/base/libs/rs/scriptc               platform-tools/renderscript/include
+external/clang/lib/Headers                    platform-tools/renderscript/clang-include
+external/clang/LICENSE.TXT                    platform-tools/renderscript/clang-include/LICENSE.TXT
+
+# API database for tools such as lint
+development/sdk/api-versions.xml              platform-tools/api/api-versions.xml
+
+##############################################################################
+# Platform Component
+##############################################################################
+
+# version files for the SDK updater, from development.git
+development/sdk/platform_source.properties    platforms/${PLATFORM_NAME}/source.properties
+
+# copy build prop from out/.../sdk/
+sdk/sdk-build.prop                            platforms/${PLATFORM_NAME}/build.prop
+
+# the uper-jar file that apps link against. This is the public API
+${OUT_DIR}/target/common/obj/PACKAGING/android_jar_intermediates/android.jar platforms/${PLATFORM_NAME}/android.jar
+
+# the aidl precompiled include
+obj/framework.aidl platforms/${PLATFORM_NAME}/framework.aidl
+
+# emulator skins from sdk.git
+development/tools/emulator/skins/QVGA      platforms/${PLATFORM_NAME}/skins/QVGA
+development/tools/emulator/skins/WQVGA432  platforms/${PLATFORM_NAME}/skins/WQVGA432
+development/tools/emulator/skins/WQVGA400  platforms/${PLATFORM_NAME}/skins/WQVGA400
+development/tools/emulator/skins/HVGA      platforms/${PLATFORM_NAME}/skins/HVGA
+development/tools/emulator/skins/WVGA800   platforms/${PLATFORM_NAME}/skins/WVGA800
+development/tools/emulator/skins/WVGA854   platforms/${PLATFORM_NAME}/skins/WVGA854
+development/tools/emulator/skins/WSVGA     platforms/${PLATFORM_NAME}/skins/WSVGA
+development/tools/emulator/skins/WXGA720   platforms/${PLATFORM_NAME}/skins/WXGA720
+development/tools/emulator/skins/WXGA800   platforms/${PLATFORM_NAME}/skins/WXGA800
+
+# Platform SDK properties
+development/sdk/sdk.properties               platforms/${PLATFORM_NAME}/sdk.properties
+
+# sdk.git Ant templates for project files
+development/tools/templates/AndroidManifest.template        platforms/${PLATFORM_NAME}/templates/AndroidManifest.template
+development/tools/templates/AndroidManifest.tests.template  platforms/${PLATFORM_NAME}/templates/AndroidManifest.tests.template
+development/tools/templates/java_file.template              platforms/${PLATFORM_NAME}/templates/java_file.template
+development/tools/templates/java_tests_file.template        platforms/${PLATFORM_NAME}/templates/java_tests_file.template
+development/tools/templates/layout.template                 platforms/${PLATFORM_NAME}/templates/layout.template
+development/tools/templates/strings.template                platforms/${PLATFORM_NAME}/templates/strings.template
+development/tools/templates/ic_launcher_ldpi.png            platforms/${PLATFORM_NAME}/templates/ic_launcher_ldpi.png
+development/tools/templates/ic_launcher_mdpi.png            platforms/${PLATFORM_NAME}/templates/ic_launcher_mdpi.png
+development/tools/templates/ic_launcher_hdpi.png            platforms/${PLATFORM_NAME}/templates/ic_launcher_hdpi.png
+
+# Eclipse Editors support
+framework/layoutlib.jar       platforms/${PLATFORM_NAME}/data/layoutlib.jar
+frameworks/base/core/res/res  platforms/${PLATFORM_NAME}/data/res
+docs/activity_actions.txt     platforms/${PLATFORM_NAME}/data/activity_actions.txt
+docs/broadcast_actions.txt    platforms/${PLATFORM_NAME}/data/broadcast_actions.txt
+docs/service_actions.txt      platforms/${PLATFORM_NAME}/data/service_actions.txt
+docs/categories.txt           platforms/${PLATFORM_NAME}/data/categories.txt
+docs/widgets.txt              platforms/${PLATFORM_NAME}/data/widgets.txt
+docs/features.txt             platforms/${PLATFORM_NAME}/data/features.txt
+
+# fonts for layoutlib.
+frameworks/base/data/fonts    platforms/${PLATFORM_NAME}/data/fonts
+
+# NOTICE files are copied by build/core/Makefile from sdk.git
+sdk/files/sdk_files_NOTICE.txt platforms/${PLATFORM_NAME}/templates/NOTICE.txt
+sdk/files/sdk_files_NOTICE.txt platforms/${PLATFORM_NAME}/data/NOTICE.txt
+sdk/files/sdk_files_NOTICE.txt platforms/${PLATFORM_NAME}/skins/NOTICE.txt
+
+##############################################################################
+# System image Component
+##############################################################################
+
+# System images + Kernel
+system.img                                 system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/system.img
+ramdisk.img                                system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/ramdisk.img
+userdata.img                               system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/userdata.img
+system/build.prop                          system-images/${PLATFORM_NAME}/${TARGET_CPU_ABI}/build.prop
+
+# Note: the kernel image is handled by sdk-android-<abi>.atree now.
+
+##############################################################################
+# Docs Component
+##############################################################################
+
+# version files for the SDK updater, from sdk.git
+development/sdk/doc_source.properties docs/source.properties
+
+# the docs
+docs/offline-sdk docs
+frameworks/base/docs/docs-samples-redirect.html docs/samples/index.html
+
+
+##############################################################################
+# Samples Component
+##############################################################################
+
+# samples to include in the sdk samples package
 #
-# The rule depends on the SDK zip file, which is defined by $2.
+# the list here should match the list of samples that we generate docs for,
+# (see web_docs_sample_code_flags in frameworks/base/Android.mk)
+development/apps/GestureBuilder              samples/${PLATFORM_NAME}/GestureBuilder
+development/samples/source.properties        samples/${PLATFORM_NAME}/source.properties
 #
-define mk-sdk-repo-pkg-3
-$(call sdk-repo-pkg-zip,$(1),$(2),$(3)): $(2)
-	@echo "Building SDK repository package $(3) from $(notdir $(2))"
-	$(hide) cd $(basename $(2))/$(4) && \
-			zip -9rq ../../../$(notdir $(call sdk-repo-pkg-zip,$(1),$(2),$(3))) *
-$(call dist-for-goals, sdk_repo, $(call sdk-repo-pkg-zip,$(1),$(2),$(3)))
-SDK_REPO_XML_ARGS += $(3) $(1) \
-	$(call sdk-repo-pkg-zip,$(1),$(2),$(3)):$(notdir $(call sdk-repo-pkg-zip,$(1),$(2),$(3)))
-endef
-
-# Defines the rule to build an SDK sources package.
+# PLEASE KEEP THE SAMPLES IN ALPHABETICAL ORDER.
 #
-# $1=OS (e.g. linux-x86, windows, etc)
-# $2=sdk zip (e.g. out/host/linux.../android-eng-sdk.zip)
-# $3=package to create, must be "sources"
-#
-define mk-sdk-repo-sources
-$(call sdk-repo-pkg-zip,$(1),$(2),$(3)): $(2) $(TOPDIR)development/sdk/source_source.properties
-	@echo "Building SDK sources package"
-	$(hide) $(TOPDIR)development/build/tools/mk_sources_zip.py --exec-zip \
-			$(TOPDIR)development/sdk/source_source.properties \
-			$(call sdk-repo-pkg-zip,$(1),$(2),$(3)) \
-			$(TOPDIR).
-$(call dist-for-goals, sdk_repo, $(call sdk-repo-pkg-zip,$(1),$(2),$(3)))
-SDK_REPO_XML_ARGS += $(3) $(1) \
-	$(call sdk-repo-pkg-zip,$(1),$(2),$(3)):$(notdir $(call sdk-repo-pkg-zip,$(1),$(2),$(3)))
-endef
+development/samples/AccelerometerPlay          samples/${PLATFORM_NAME}/AccelerometerPlay
+development/samples/ActionBarCompat            samples/${PLATFORM_NAME}/ActionBarCompat
+development/samples/AndroidBeamDemo            samples/${PLATFORM_NAME}/AndroidBeamDemo
+development/samples/ApiDemos                   samples/${PLATFORM_NAME}/ApiDemos
+development/samples/AppNavigation              samples/${PLATFORM_NAME}/AppNavigation
+development/samples/BackupRestore              samples/${PLATFORM_NAME}/BackupRestore
+development/samples/BasicGLSurfaceView         samples/${PLATFORM_NAME}/BasicGLSurfaceView
+development/samples/BluetoothChat              samples/${PLATFORM_NAME}/BluetoothChat
+development/samples/BluetoothHDP               samples/${PLATFORM_NAME}/BluetoothHDP
+development/samples/ContactManager             samples/${PLATFORM_NAME}/ContactManager
+development/samples/CrossCompatibility         samples/${PLATFORM_NAME}/CrossCompatibility
+development/samples/CubeLiveWallpaper          samples/${PLATFORM_NAME}/CubeLiveWallpaper
+development/samples/Home                       samples/${PLATFORM_NAME}/Home
+development/samples/HoneycombGallery           samples/${PLATFORM_NAME}/HoneycombGallery
+development/samples/JetBoy                     samples/${PLATFORM_NAME}/JetBoy
+development/samples/LunarLander                samples/${PLATFORM_NAME}/LunarLander
+development/samples/MultiResolution            samples/${PLATFORM_NAME}/MultiResolution
+development/samples/NotePad                    samples/${PLATFORM_NAME}/NotePad
+development/samples/NFCDemo                    samples/${PLATFORM_NAME}/NFCDemo
+development/samples/RandomMusicPlayer          samples/${PLATFORM_NAME}/RandomMusicPlayer
+development/samples/SpellChecker/SampleSpellCheckerService samples/${PLATFORM_NAME}/SpellChecker/SampleSpellCheckerService
+development/samples/SpellChecker/HelloSpellChecker samples/${PLATFORM_NAME}/SpellChecker/HelloSpellChecker
+development/samples/SampleSyncAdapter          samples/${PLATFORM_NAME}/SampleSyncAdapter
+development/samples/SearchableDictionary       samples/${PLATFORM_NAME}/SearchableDictionary
+development/samples/SipDemo                    samples/${PLATFORM_NAME}/SipDemo
+development/samples/SkeletonApp                samples/${PLATFORM_NAME}/SkeletonApp
+development/samples/Snake                      samples/${PLATFORM_NAME}/Snake
+development/samples/SoftKeyboard               samples/${PLATFORM_NAME}/SoftKeyboard
+development/samples/Spinner                    samples/${PLATFORM_NAME}/Spinner
+development/samples/SpinnerTest                samples/${PLATFORM_NAME}/SpinnerTest
+development/samples/TicTacToeLib               samples/${PLATFORM_NAME}/TicTacToeLib
+development/samples/TicTacToeMain              samples/${PLATFORM_NAME}/TicTacToeMain
+development/samples/TtsEngine                  samples/${PLATFORM_NAME}/TtsEngine
+development/samples/ToyVpn                     samples/${PLATFORM_NAME}/ToyVpn
+development/samples/USB/MissileLauncher        samples/${PLATFORM_NAME}/USB/MissileLauncher
+development/samples/USB/AdbTest                samples/${PLATFORM_NAME}/USB/AdbTest
+development/samples/VoiceRecognitionService    samples/${PLATFORM_NAME}/VoiceRecognitionService
+development/samples/VoicemailProviderDemo      samples/${PLATFORM_NAME}/VoicemailProviderDemo
+development/samples/WeatherListWidget          samples/${PLATFORM_NAME}/WeatherListWidget
+development/apps/WidgetPreview                 samples/${PLATFORM_NAME}/WidgetPreview
+development/samples/WiFiDirectDemo             samples/${PLATFORM_NAME}/WiFiDirectDemo
+development/samples/Wiktionary                 samples/${PLATFORM_NAME}/Wiktionary
+development/samples/WiktionarySimple           samples/${PLATFORM_NAME}/WiktionarySimple
+development/samples/XmlAdapters                samples/${PLATFORM_NAME}/XmlAdapters
+development/samples/RenderScript/Balls         samples/${PLATFORM_NAME}/RenderScript/Balls
+development/samples/RenderScript/Fountain      samples/${PLATFORM_NAME}/RenderScript/Fountain
+development/samples/RenderScript/FountainFbo   samples/${PLATFORM_NAME}/RenderScript/FountainFbo
+development/samples/RenderScript/HelloCompute  samples/${PLATFORM_NAME}/RenderScript/HelloCompute
+development/samples/RenderScript/HelloWorld    samples/${PLATFORM_NAME}/RenderScript/HelloWorld
+development/samples/RenderScript/MiscSamples   samples/${PLATFORM_NAME}/RenderScript/MiscSamples
 
-# -----------------------------------------------------------------
-# Rules for main host sdk
+# NOTICE files are copied by build/core/Makefile from sdk.git
+sdk/files/sdk_files_NOTICE.txt samples/${PLATFORM_NAME}/NOTICE.txt
 
-ifneq ($(filter sdk win_sdk,$(MAKECMDGOALS)),)
+##############################################################################
+# Add-on Folder
+##############################################################################
 
-# Note that extras are now located in addon.xml, not in repository.xml,
-# so we capture all extras first.
-$(eval $(call mk-sdk-repo-pkg-3,$(HOST_OS),$(MAIN_SDK_ZIP),support,extras/android))
-SDK_EXTRAS_XML_ARGS := $(SDK_REPO_XML_ARGS)
-SDK_REPO_XML_ARGS   :=
+# empty add-on folder with just a readme copied from sdk.git
+sdk/files/README_add-ons.txt add-ons/README.txt
 
-SDK_EXTRAS_DEPS += \
-		$(call sdk-repo-pkg-zip,$(HOST_OS),$(MAIN_SDK_ZIP),support)
+##############################################################################
+# Extra Component: Support
+##############################################################################
 
+development/sdk/support_source.properties                                                         extras/android/support/source.properties
+development/sdk/support_README.txt                                                                extras/android/support/README.txt
+sdk/files/sdk_files_NOTICE.txt                                                                    extras/android/support/NOTICE.txt
+${OUT_DIR}/target/common/obj/PACKAGING/android-support-v4_intermediates/android-support-v4.jar    extras/android/support/v4/android-support-v4.jar
+frameworks/support/v4                                                                             extras/android/support/v4/src
+development/samples/Support4Demos                                                                 extras/android/support/samples/Support4Demos
 
-$(eval $(call mk-sdk-repo-pkg-1,$(HOST_OS),$(MAIN_SDK_ZIP),tools))
-$(eval $(call mk-sdk-repo-pkg-1,$(HOST_OS),$(MAIN_SDK_ZIP),platform-tools))
-$(eval $(call mk-sdk-repo-pkg-1,$(HOST_OS),$(MAIN_SDK_ZIP),docs))
-$(eval $(call mk-sdk-repo-pkg-2,$(HOST_OS),$(MAIN_SDK_ZIP),platforms))
-$(eval $(call mk-sdk-repo-pkg-2,$(HOST_OS),$(MAIN_SDK_ZIP),samples))
-$(eval $(call mk-sdk-repo-pkg-3,$(HOST_OS),$(MAIN_SDK_ZIP),system-images,system-images/*))
-$(eval $(call mk-sdk-repo-sources,$(HOST_OS),$(MAIN_SDK_ZIP),sources))
+${OUT_DIR}/target/common/obj/PACKAGING/android-support-v13_intermediates/android-support-v13.jar  extras/android/support/v13/android-support-v13.jar
+frameworks/support/v13                                                                            extras/android/support/v13/src
+development/samples/Support13Demos                                                                extras/android/support/samples/Support13Demos
 
-SDK_REPO_DEPS += \
-		$(call sdk-repo-pkg-zip,$(HOST_OS),$(MAIN_SDK_ZIP),tools) \
-		$(call sdk-repo-pkg-zip,$(HOST_OS),$(MAIN_SDK_ZIP),platform-tools) \
-		$(call sdk-repo-pkg-zip,$(HOST_OS),$(MAIN_SDK_ZIP),docs) \
-		$(call sdk-repo-pkg-zip,$(HOST_OS),$(MAIN_SDK_ZIP),platforms) \
-		$(call sdk-repo-pkg-zip,$(HOST_OS),$(MAIN_SDK_ZIP),samples) \
-		$(call sdk-repo-pkg-zip,$(HOST_OS),$(MAIN_SDK_ZIP),system-images) \
-		$(call sdk-repo-pkg-zip,$(HOST_OS),$(MAIN_SDK_ZIP),sources)
+development/sdk/prebuilt/v7                                                                       extras/android/support/v7
 
-endif
+##############################################################################
+# Tests Component
+##############################################################################
+framework/layoutlib-tests.jar tests/libtests/layoutlib-tests.jar
+system/app/ConnectivityTest.apk tests/emulator-test-apps/ConnectivityTest.apk
+system/app/GpsLocationTest.apk tests/emulator-test-apps/GpsLocationTest.apk
 
-# -----------------------------------------------------------------
-# Rules for win_sdk
-
-ifneq ($(WIN_SDK_ZIP),)
-
-# docs, platforms and samples have nothing OS-dependent right now.
-$(eval $(call mk-sdk-repo-pkg-1,windows,$(WIN_SDK_ZIP),tools))
-$(eval $(call mk-sdk-repo-pkg-1,windows,$(WIN_SDK_ZIP),platform-tools))
-
-SDK_REPO_DEPS += \
-	$(call sdk-repo-pkg-zip,windows,$(WIN_SDK_ZIP),tools) \
-        $(call sdk-repo-pkg-zip,windows,$(WIN_SDK_ZIP),platform-tools)
-
-endif
-
-# -----------------------------------------------------------------
-# Pickup the most recent xml schema for repository and add-on
-
-SDK_REPO_XSD := \
-	$(lastword \
-	  $(wildcard \
-	    $(TOPDIR)sdk/sdkmanager/libs/sdklib/src/com/android/sdklib/repository/sdk-repository-*.xsd \
-	))
-
-SDK_ADDON_XSD := \
-	$(lastword \
-	  $(wildcard \
-	    $(TOPDIR)sdk/sdkmanager/libs/sdklib/src/com/android/sdklib/repository/sdk-addon-*.xsd \
-	))
-
-# -----------------------------------------------------------------
-# Rules for sdk addon
-
-ifneq ($(ADDON_SDK_ZIP),)
-
-# ADDON_SDK_ZIP is defined in build/core/tasks/sdk-addon.sh and is
-# already packaged correctly. All we have to do is dist it with
-# a different destination name.
-
-RENAMED_ADDON_ZIP := $(ADDON_SDK_ZIP):$(notdir $(call sdk-repo-pkg-zip,$(HOST_OS),$(ADDON_SDK_ZIP),addon))
-
-$(call dist-for-goals, sdk_repo, $(RENAMED_ADDON_ZIP))
-
-# Also generate the addon.xml using the latest schema and the renamed addon zip
-
-SDK_ADDON_XML := $(dir $(ADDON_SDK_ZIP))/addon.xml
-
-$(SDK_ADDON_XML): $(ADDON_SDK_ZIP)
-	$(hide) $(TOPDIR)development/build/tools/mk_sdk_repo_xml.sh \
-		$(SDK_ADDON_XML) $(SDK_ADDON_XSD) add-on $(HOST_OS) $(RENAMED_ADDON_ZIP)
-
-$(call dist-for-goals, sdk_repo, $(SDK_ADDON_XML))
-
-endif
-
-# -----------------------------------------------------------------
-# Rules for the SDK Repository XML
-
-SDK_REPO_XML   := $(HOST_OUT)/sdk/repository.xml
-SDK_EXTRAS_XML := $(HOST_OUT)/sdk/repo-extras.xml
-
-ifneq ($(SDK_REPO_XML_ARGS),)
-
-$(SDK_REPO_XML): $(SDK_REPO_DEPS)
-	$(hide) $(TOPDIR)development/build/tools/mk_sdk_repo_xml.sh \
-		$(SDK_REPO_XML) $(SDK_REPO_XSD) $(SDK_REPO_XML_ARGS)
-
-$(call dist-for-goals, sdk_repo, $(SDK_REPO_XML))
-
-else
-
-$(SDK_REPO_XML): ;
-
-endif
-
-
-ifneq ($(SDK_EXTRAS_XML_ARGS),)
-
-$(SDK_EXTRAS_XML): $(SDK_EXTRAS_DEPS)
-	$(hide) $(TOPDIR)development/build/tools/mk_sdk_repo_xml.sh \
-		$(SDK_EXTRAS_XML) $(SDK_ADDON_XSD) $(SDK_EXTRAS_XML_ARGS)
-
-$(call dist-for-goals, sdk_repo, $(SDK_EXTRAS_XML))
-
-else
-
-$(SDK_EXTRAS_XML): ;
-
-endif
-
-# -----------------------------------------------------------------
-
-sdk_repo: $(SDK_REPO_DEPS) $(SDK_REPO_XML) $(SDK_EXTRAS_XML)
-	@echo "Packing of SDK repository done"
 

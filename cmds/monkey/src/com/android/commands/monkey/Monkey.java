@@ -1096,7 +1096,6 @@ public class Monkey {
                     eventCounter++;
                     if (mCountEvents) {
                         cycleCounter++;
-                        writeScriptLog(cycleCounter);
                     }
                 }
             } else {
@@ -1291,3 +1290,5 @@ public class Monkey {
         System.err.println(usage.toString());
     }
 }
+
+
